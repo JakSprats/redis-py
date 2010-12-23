@@ -212,7 +212,9 @@ class Redis(threading.local):
     RESPONSE_CALLBACKS = dict_merge(
         string_keys_to_dict(
             'AUTH DEL EXISTS EXPIRE EXPIREAT HDEL HEXISTS HMSET MOVE MSETNX '
-            'PERSIST RENAMENX SADD SISMEMBER SMOVE SETEX SETNX SREM ZADD ZREM',
+            'PERSIST RENAMENX SADD SISMEMBER SMOVE SETEX SETNX SREM ZADD ZREM'
+            ### ALCHEMY DATABASE ###
+            'CREATE DROP INSERT',
             bool
             ),
         string_keys_to_dict(
@@ -229,7 +231,9 @@ class Redis(threading.local):
         string_keys_to_dict('ZSCORE ZINCRBY', float_or_none),
         string_keys_to_dict(
             'FLUSHALL FLUSHDB LSET LTRIM MSET RENAME '
-            'SAVE SELECT SET SHUTDOWN SLAVEOF WATCH UNWATCH',
+            ###'SAVE SELECT SET SHUTDOWN SLAVEOF WATCH UNWATCH',
+            ### ALCHEMY DATABASE ###
+            'SAVE SET SHUTDOWN SLAVEOF WATCH UNWATCH',
             lambda r: r == 'OK'
             ),
         string_keys_to_dict('BLPOP BRPOP', lambda r: r and tuple(r) or None),
@@ -1351,6 +1355,53 @@ class Redis(threading.local):
                 self.subscribed = False
             yield msg
 
+    ### ALCHEMY DATABASE ###
+    def createTable(self, tablename, column_defitions):
+        return self.execute_command('CREATE', 'TABLE', tablename, "(" + column_defitions + ")")
+    def dropTable(self, tablename):
+        return self.execute_command('DROP', 'TABLE', tablename)
+    def desc(self, tablename):
+        return self.execute_command('DESC', tablename)
+    def dump(self, tablename):
+        return self.execute_command('DUMP', tablename)
+    def dumpToMysql(self, tablename, mysqltablename):
+        if mysqltablename == "":
+            return self.execute_command('DUMP', tablename, "TO", "MYSQL")
+        else:
+            return self.execute_command('DUMP', tablename, "TO", "MYSQL", mysqltablename)
+    def dumpToFile(self, tablename, filename):
+        return self.execute_command('DUMP', tablename, "TO", "FILE", filename)
+
+    def createIndex(self, indexname, tablename, columnname):
+        return self.execute_command('CREATE', 'INDEX', indexname, 'ON', tablename, "(" + columnname + ")")
+    def dropIndex(self, indexname):
+        return self.execute_command('DROP', 'INDEX', indexname)
+
+    def insert(self, tablename, values):
+        return self.execute_command('INSERT', 'INTO', tablename, 'VALUES', "(" + values + ")")
+    def insert_ret_size(self, tablename, values):
+        return self.execute_command('INSERT', 'INTO', tablename, 'VALUES', "(" + values + ")", "RETURN", "SIZE")
+    def sqlSelect(self, columns, tables, where_clause):
+        return self.execute_command('SELECT', columns, 'FROM', tables, 'WHERE', where_clause)
+    def scanSelect(self, columns, tables, where_clause):
+        if where_clause == "":
+            return self.execute_command('SCANSELECT', columns, 'FROM', tables)
+        else:
+            return self.execute_command('SCANSELECT', columns, 'FROM', tables, 'WHERE', where_clause)
+    def update(self, tablename, value_list, where_clause):
+        return self.execute_command('UPDATE', tablename, 'SET', value_list, 'WHERE', where_clause)
+    def delete(self, tablename, where_clause):
+        return self.execute_command('DELETE', 'FROM', tablename, 'WHERE', where_clause)
+
+    def createTableAs(self, tablename, statement):
+        return self.execute_command('CREATE', 'TABLE', tablename, "AS " + statement)
+    def lua(self, command):
+        return self.execute_command('LUA', command)
+    def norm(self, main_wildcard, secondary_wildcard):
+        return self.execute_command('NORM', main_wildcard, secondary_wildcard)
+    def norm(self, tablename, main_wildcard):
+        return self.execute_command('DENORM', tablename, main_wildcard)
+
 
 class Pipeline(Redis):
     """
@@ -1397,7 +1448,9 @@ class Pipeline(Redis):
         # must have originated after a socket connection and a call to
         # _setup_connection(). run these commands immediately without
         # buffering them.
-        if command_name in ('AUTH', 'SELECT'):
+        ###if command_name in ('AUTH', 'SELECT'):
+        ### LACHEMY DATABASE ###
+        if command_name in ('AUTH'):
             return super(Pipeline, self)._execute_command(
                 command_name, command, **options)
         else:

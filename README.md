@@ -2,6 +2,7 @@ redis-py
 ========
 
 This is the Python interface to the Redis key-value store.
+This Fork supports [AlchemyDB](http://code.google.com/p/alchemydatabase/ "AlchemyDB") commands.
 
 
 Usage
@@ -13,6 +14,33 @@ Usage
     True
     >>> r.get('foo')   # or r['foo']
     'bar'
+    >>> r.createTable("python", "id INT, val INT, more INT")
+    True
+    >>> r.createIndex("ind_python_val", "python", "val");
+    True
+    >>> r.insert("python", "1,11,111")
+    True
+    >>> r.insert("python", "2,22,222")
+    True
+    >>> r.insert("python", "3,33,333")
+    True
+    >>> r.insert("python", "4,44,444")
+    True
+    >>> r.sqlSelect("*", "python", "id = 3")
+    ['3,33,333']
+    >>> r.sqlSelect("*", "python", "id BETWEEN 1 AND 2")
+    ['1,11,111', '2,22,222']
+    >>> r.scanSelect("*", "python", "more BETWEEN 200 AND 300")
+    ['2,22,222']
+    >>> r.update("python", "more=999", "id = 3")
+    1
+    >>> r.scanSelect("*", "python", "")
+    ['1,11,111', '2,22,222', '3,33,999', '4,44,444']
+    >>> r.delete("python", "id = 2")
+    1
+    >>> r.lua("return client('SCANSELECT','*', 'FROM', 'python');")
+    ['1,11,111', '3,33,999', '4,44,444']
+
 
 For a complete list of commands, check out the list of Redis commands here:
 http://code.google.com/p/redis/wiki/CommandReference
@@ -37,6 +65,39 @@ support all the commands available in Redis 2.0.0.
 
 API Reference
 -------------
+
+### createTable(self, tablename, column_defitions)
+  Creates SQL table "tablename" w/ columns "column_defitions"
+  e.g. r.createTable('customer','id INT, name TEXT, bill FLOAT')
+
+### createIndex(self, indexname, tablename, columnname)
+  Creates an index named "indexname" on the table "tablename"'s column "columnname"
+  e.g. r.createIndex('ind_cust_name', 'customer', 'name')
+
+### insert(self, tablename, values)
+  SQL INSERT "values" into table "tablename"
+  e.g. r.insert('customer','1,"kenny",99.99)
+
+### sqlSelect(self, columns, tables, where_clause)
+  SQL SELECT "columns" FROM table "table" WHERE where_clause
+  e.g. r.sqlSelect('bill','customer','id = 1')
+  (Join) r.sqlSelect('customer.name,cust_info.age','customer,cust_info','customer.id = cust_info.id AND customer.id = 1"');
+
+### scanSelect(self, columns, tables, where_clause)
+  SQL FULL TABLE SCAN
+  e.g. r.sqlSelect('*','customer','bill = 99.99')
+
+### update(self, tablename, value_list, where_clause)
+  SQL UPDATE "tablename" SET "value_list" WHERE where_clause
+  e.g. r.update('customer', 'bill=299.99', 'id = 1');
+
+## delete(self, tablename, where_clause)
+  SQL DELETE FROM "tablename" WHERE where_clause
+  e.g. r.delete('customer','id = 1')
+
+## lua(self, command)
+  Run Lua "command" inside AlchemyDB
+  e.g. r.lua("return client('SCANSELECT','*', 'FROM', 'customer');")
 
 ### append(self, key, value)
   Appends the string _value_ to the value at _key_. If _key_
